@@ -4,6 +4,7 @@ namespace Core;
 
 use GuzzleHttp\Client;
 use Helpers\SimpleHtmlDom;
+use Exception\BodyNotFoundException;
 
 abstract class WebClient
 {
@@ -70,7 +71,14 @@ abstract class WebClient
     }
 
     protected function extractBody(){
-        return (string)$this->response->getBody();
+
+        $body = (string)$this->response->getBody();
+
+        if(empty($body)){
+            throw new BodyNotFoundException();
+        }
+
+        return $body;
     }
 
     /**
