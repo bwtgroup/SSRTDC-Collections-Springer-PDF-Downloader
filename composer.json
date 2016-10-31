@@ -1,0 +1,12 @@
+{
+    "autoload" : {
+        "psr-4" : {
+        },
+        "classmap" : [
+            "src/"
+        ]
+    },
+    "require" : {
+        "guzzlehttp/guzzle" : "~6.0"
+    }
+}
