@@ -26,7 +26,7 @@ class SpringerParser extends WebClient
     public $id = "";
 
 
-    public function __construct($link, array $headers = [], $proxy = "", $debug = true, $logFileName = "log.txt")
+    public function __construct($link, array $headers = [], $proxy = "", $debug = false, $logFileName = "log.txt")
     {
         parent::__construct($headers, $proxy, $debug, $logFileName);
         $this->id = ltrim(strrchr($link, "/"), "/");
