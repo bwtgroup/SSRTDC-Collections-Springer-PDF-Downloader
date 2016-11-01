@@ -89,12 +89,14 @@ class SpringerParser extends WebClient
         $article->doiLink = $this->url . $articleLink;
         $article->paperTitle = trim($this->crawler->find('.MainTitleSection', 0)->plaintext);
 
-        $authors = [];
-        foreach ($this->crawler->find('.authors__name') as $author) {
-            $authors[] = trim($author->plaintext);
-        }
-        $article->completeCitation = implode(", ", $authors) . ": " . $article->paperTitle . ". " .
-            $article->journal . "., " . $article->volume . "(" . $article->issue . ") " . $article->pages . " (" . $article->year . ") DOI: " . $article->doi;
+        $citiesText = $this->crawler->find('#citethis-text', 0)->plaintext;
+        $year = "(" . $article->year . ")";
+        $text = $this->str_replace_first(strrchr($citiesText, $year), "", $citiesText);
+        $authors = $this->str_replace_first(strrchr($text, ". "), ".", $text);
+        $articleName = trim($this->str_replace_first($authors, "", $text));
+
+        $article->completeCitation = $authors . ": " . $article->paperTitle . ". " .
+            $articleName . "., " . $article->volume . "(" . $article->issue . ") " . $article->pages . " (" . $article->year . ") DOI: " . $article->doi;
 
         $article->abstract = $this->str_replace_first("Abstract", "", $this->crawler->find('.Abstract', 0)->plaintext);
         $article->views = $this->crawler->find('.article-metrics__views', 0)->plaintext;
@@ -105,7 +107,7 @@ class SpringerParser extends WebClient
 
     protected function getGSViews($name, $proxy = "")
     {
-        $requestResult = $this->sendRequest("https://scholar.google.com.ua/scholar?q=" . urlencode($name), [
+        $requestResult = $this->sendRequest("https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"'), [
             'headers' => [
                 'Pragma' => 'no-cache',
                 'Referer' => "https://scholar.google.com.ua/scholar",
@@ -116,12 +118,26 @@ class SpringerParser extends WebClient
         $this->crawler->clear();
         $this->crawler->load($requestResult);
 
-        return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
+        if ($this->crawler->find('.gs_rt', 0)->plaintext == $name) {
+            return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
+        } else {
+            $requestResult = $this->sendRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), [
+                'headers' => [
+                    'Pragma' => 'no-cache',
+                    'Referer' => "https://scholar.google.com.ua/scholar",
+                ],
+                'proxy' => $proxy
+            ])->extractBody();
+
+            $this->crawler->clear();
+            $this->crawler->load($requestResult);
+            return intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
+        }
     }
 
     public function parse($fileName)
     {
-        if($fileName == ""){
+        if ($fileName == "") {
             echo "Error CSV file not set";
             exit();
         }

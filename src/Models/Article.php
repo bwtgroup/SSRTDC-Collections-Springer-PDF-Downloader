@@ -28,18 +28,18 @@ namespace Models;
 class Article
 {
     protected $attributes = [
-        'year' => '',
-        'journal'=> '',
-        'volume'=> '',
-        'issue'=> '',
-        'pages'=> '',
-        'doi'=> '',
-        'doiLink'=> '',
-        'paperTitle'=> '',
-        'completeCitation'=> '',
-        'abstract'=> '',
-        'views'=> '',
-        'citationGoogle'=> '',
+        'year' => ' ',
+        'journal'=> ' ',
+        'volume'=> ' ',
+        'issue'=> ' ',
+        'pages'=> ' ',
+        'doi'=> ' ',
+        'doiLink'=> ' ',
+        'paperTitle'=> ' ',
+        'completeCitation'=> ' ',
+        'abstract'=> ' ',
+        'views'=> ' ',
+        'citationGoogle'=> ' ',
     ];
 
     function __get($name)
