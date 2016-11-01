@@ -9,6 +9,7 @@
 namespace Parser;
 
 use Core\WebClient;
+use Models\Article;
 
 class SpringerParser extends WebClient
 {
@@ -24,7 +25,6 @@ class SpringerParser extends WebClient
     public $journalLink = "journal/volumesAndIssues/";
     public $id = "";
 
-    protected $journalLinks = [];
 
     public function __construct($link, array $headers = [], $proxy = "", $debug = true, $logFileName = "log.txt")
     {
@@ -38,39 +38,104 @@ class SpringerParser extends WebClient
         $this->crawler->clear();
         $this->crawler->load($result);
 
-        $this->journalLinks = [];
+        $res = [];
 
-        foreach ($this->crawler->find('.issue-item') as $item){
-           $this->journalLinks[] = $item->find('a',0)->href;
+        foreach ($this->crawler->find('.issue-item') as $item) {
+            $res[] = $item->find('a', 0)->href;
         }
+
+        return $res;
     }
 
-    protected function parseArticlesList($link){
+    protected function parseArticlesList($link)
+    {
         $result = [];
 
         $response = $this->sendRequest($link)->extractBody();
         $this->crawler->clear();
         $this->crawler->load($response);
 
-        foreach ($this->crawler->find('ol') as $item){
-              foreach($item->find('.title') as $articleLink){
-                 $result[] = $articleLink->find('a',0)->href . PHP_EOL;
-              }
+        foreach ($this->crawler->find('ol') as $item) {
+            foreach ($item->find('.title') as $articleLink) {
+                $result[] = $articleLink->find('a', 0)->href;
+            }
         }
 
 
         return $result;
     }
 
-    public function parse()
+    private function str_replace_first($from, $to, $subject)
     {
-        $this->parseJournalLinks();
+        $from = '/' . preg_quote($from, '/') . '/';
 
-         foreach ($this->journalLinks as $link){
-            $this->parseArticlesList($link);
-             exit();
-         }
+        return preg_replace($from, $to, $subject, 1);
+    }
 
-        return count($this->journalLinks);
+    protected function parseArticle($articleLink)
+    {
+        $response = $this->sendRequest($articleLink)->extractBody();
+
+        $this->crawler->clear();
+        $this->crawler->load($response);
+
+        $article = new Article();
+        $article->year = filter_var($this->crawler->find('.ArticleCitation_Year', 0)->plaintext, FILTER_SANITIZE_NUMBER_INT);
+        $article->journal = trim($this->crawler->find('.JournalTitle', 0)->plaintext);
+        $article->volume = filter_var($this->crawler->find('.ArticleCitation_Volume', 0)->plaintext, FILTER_SANITIZE_NUMBER_INT);
+        $article->issue = filter_var($this->crawler->find('.ArticleCitation_Issue', 0)->plaintext, FILTER_SANITIZE_NUMBER_INT);
+        $article->pages = trim($this->str_replace_first("pp", "", $this->crawler->find('.ArticleCitation_Pages', 0)->plaintext));
+        $article->doi = $this->str_replace_first("article/", "", strrchr($articleLink, "article/"));
+        $article->doiLink = $this->url . $articleLink;
+        $article->paperTitle = trim($this->crawler->find('.MainTitleSection', 0)->plaintext);
+
+        $authors = [];
+        foreach ($this->crawler->find('.authors__name') as $author) {
+            $authors[] = trim($author->plaintext);
+        }
+        $article->completeCitation = implode(", ", $authors) . ": " . $article->paperTitle . ". " .
+            $article->journal . "., " . $article->volume . "(" . $article->issue . ") " . $article->pages . " (" . $article->year . ") DOI: " . $article->doi;
+
+        $article->abstract = $this->str_replace_first("Abstract", "", $this->crawler->find('.Abstract', 0)->plaintext);
+        $article->views = $this->crawler->find('.article-metrics__views', 0)->plaintext;
+        $article->citationGoogle = $this->getGSViews($article->paperTitle);
+
+        return $article;
+    }
+
+    protected function getGSViews($name, $proxy = "")
+    {
+        $requestResult = $this->sendRequest("https://scholar.google.com.ua/scholar?q=" . urlencode($name), [
+            'headers' => [
+                'Pragma' => 'no-cache',
+                'Referer' => "https://scholar.google.com.ua/scholar",
+            ],
+            'proxy' => $proxy
+        ])->extractBody();
+
+        $this->crawler->clear();
+        $this->crawler->load($requestResult);
+
+        return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
+    }
+
+    public function parse($fileName)
+    {
+        if($fileName == ""){
+            echo "Error CSV file not set";
+            exit();
+        }
+
+        $file = fopen($fileName, "w");
+        $links = $this->parseJournalLinks();
+        foreach ($links as $link) {
+            $articles = $this->parseArticlesList($link);
+
+            foreach ($articles as $article) {
+                $this->parseArticle($article)->toCSV($file);
+            }
+        }
+
+        fclose($file);
     }
 }
