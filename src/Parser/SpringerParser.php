@@ -100,6 +100,10 @@ class SpringerParser extends WebClient
 
         $article->abstract = $this->str_replace_first("Abstract", "", $this->crawler->find('.Abstract', 0)->plaintext);
         $article->views = $this->crawler->find('.article-metrics__views', 0)->plaintext;
+        if (strpos($article->views, 'k')) {
+            $article->views = ceil(doubleval(trim($this->crawler->find('.article-metrics__views', 0)->plaintext)) * 1024);
+        }
+
         $article->citationGoogle = $this->getGSViews($article->paperTitle);
 
         return $article;
@@ -121,17 +125,26 @@ class SpringerParser extends WebClient
         if ($this->crawler->find('.gs_rt', 0)->plaintext == $name) {
             return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
         } else {
-            $requestResult = $this->sendRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), [
-                'headers' => [
-                    'Pragma' => 'no-cache',
-                    'Referer' => "https://scholar.google.com.ua/scholar",
-                ],
-                'proxy' => $proxy
-            ])->extractBody();
 
-            $this->crawler->clear();
-            $this->crawler->load($requestResult);
-            return intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
+            try {
+                $requestResult = $this->sendRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), [
+                    'headers' => [
+                        'Pragma' => 'no-cache',
+                        'Referer' => "https://scholar.google.com.ua/scholar",
+                    ],
+                    'proxy' => $proxy
+                ])->extractBody();
+
+                $this->crawler->clear();
+                $this->crawler->load($requestResult);
+
+                if ($this->crawler->find('.g', 0) != null && $this->crawler->find('.g', 0)->find('.slp', 0) != null) {
+                    return intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
+                }
+            } catch (\Exception $ex) {
+                return 0;
+            }
+            return 0;
         }
     }
 
@@ -146,9 +159,8 @@ class SpringerParser extends WebClient
         $links = $this->parseJournalLinks();
         foreach ($links as $link) {
             $articles = $this->parseArticlesList($link);
-
             foreach ($articles as $article) {
-                $this->parseArticle($article)->toCSV($file);
+                $this->parseArticle($article)->toCSV($file); 
             }
         }
 
