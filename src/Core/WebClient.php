@@ -66,7 +66,12 @@ abstract class WebClient
 
     protected function sendRequest($url, $options = [], $method = "GET")
     {
-        $this->response = $this->client->request($method, $url, $options);
+        try{
+            $this->response = $this->client->request($method, $url, $options);
+        }catch (\Exception $ex){
+            echo "Cant get page: ".$this->url.'/'.$url.PHP_EOL;
+        }
+
         return $this;
     }
 

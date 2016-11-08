@@ -39,28 +39,33 @@ class SpringerParser extends WebClient
         $this->crawler->load($result);
 
         $res = [];
-
         foreach ($this->crawler->find('.issue-item') as $item) {
             $res[] = $item->find('a', 0)->href;
         }
 
+//        $res[] = "/journal/" . $this->id . "/onlineFirst/page/1"; Добавляет парсинг Online First статей
+
         return $res;
     }
 
-    protected function parseArticlesList($link)
+    public function parseArticlesList($link)
     {
         $result = [];
-
-        $response = $this->sendRequest($link)->extractBody();
-        $this->crawler->clear();
-        $this->crawler->load($response);
-
-        foreach ($this->crawler->find('ol') as $item) {
-            foreach ($item->find('.title') as $articleLink) {
-                $result[] = $articleLink->find('a', 0)->href;
+        $lastResultCount = -1;
+        $currPage = 1;
+        while ($lastResultCount != count($result)) {
+            $lastResultCount = count($result);
+            $response = $this->sendRequest(substr($link, 0, strrpos($link, '/')) . '/' . $currPage)->extractBody();
+            $this->crawler->clear();
+            $this->crawler->load($response);
+            foreach ($this->crawler->find('ol') as $item) {
+                foreach ($item->find('.title') as $articleLink) {
+                    $result[] = $articleLink->find('a', 0)->href;
+                }
             }
-        }
 
+            $currPage++;
+        }
 
         return $result;
     }
@@ -68,7 +73,6 @@ class SpringerParser extends WebClient
     private function str_replace_first($from, $to, $subject)
     {
         $from = '/' . preg_quote($from, '/') . '/';
-
         return preg_replace($from, $to, $subject, 1);
     }
 
