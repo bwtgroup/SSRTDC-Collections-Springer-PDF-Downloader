@@ -1,23 +1,23 @@
 <?php
 
 require_once "../vendor/autoload.php";
-
-error_reporting(0);
-ini_set('display_errors', 0);
+set_time_limit(0);
+//error_reporting(0);
+//ini_set('display_errors', 0);
 
 use Parser\SpringerParser;
 
-$data = getopt("l:f:");
+$data = $_GET;
 
-if(!isset($data['l'])){
-    echo "Cant start, no link to parse, use -l parameter to set link, example: php index.php -l=http://link.springer.com/journal/volumesAndIssues/10791".PHP_EOL;
+if (!isset($data['link'])) {
+    echo "Cant start, no link to parse, use \"link\" parameter to set link, example: http://springer.groupbwt.com/src/index.php?link=http://link.springer.com/journal/volumesAndIssues/10791&file=result.csv" . PHP_EOL;
     exit();
 }
 
-if(!isset($data['f'])){
-    echo "Cant start, no file to save, use -f parameter to set file to save, example: php index.php -f=result.csv".PHP_EOL;
+if (!isset($data['file'])) {
+    echo "Cant start, no file to save, use \"file\" parameter to set file to save, example: http://springer.groupbwt.com/src/index.php?link=http://link.springer.com/journal/volumesAndIssues/10791&file=result.csv" . PHP_EOL;
     exit();
 }
 
-$parser = new SpringerParser($data['l']);
-$parser->parse($data['f']);
+$parser = new SpringerParser($data['link']);
+$parser->parse($data['file']);

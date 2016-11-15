@@ -113,40 +113,39 @@ class SpringerParser extends WebClient
         return $article;
     }
 
-    protected function getGSViews($name, $proxy = "")
+    public function getGSViews($name)
     {
-        $requestResult = $this->sendRequest("https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"'), [
-            'headers' => [
-                'Pragma' => 'no-cache',
-                'Referer' => "https://scholar.google.com.ua/scholar",
-            ],
-            'proxy' => $proxy
-        ])->extractBody();
+
+        while (true) {
+            $requestResult = $this->curlRequest("https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"'), $this->proxy, $this->proxyType);
+
+            if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form') && strpos($requestResult['data'] , '')) {
+                $this->changeProxy();
+            } else {
+                break;
+            }
+        }
 
         $this->crawler->clear();
-        $this->crawler->load($requestResult);
+        $this->crawler->load($requestResult['data']);
 
         if ($this->crawler->find('.gs_rt', 0)->plaintext == $name) {
             return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
         } else {
-
-            try {
-                $requestResult = $this->sendRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), [
-                    'headers' => [
-                        'Pragma' => 'no-cache',
-                        'Referer' => "https://scholar.google.com.ua/scholar",
-                    ],
-                    'proxy' => $proxy
-                ])->extractBody();
-
-                $this->crawler->clear();
-                $this->crawler->load($requestResult);
-
-                if ($this->crawler->find('.g', 0) != null && $this->crawler->find('.g', 0)->find('.slp', 0) != null) {
-                    return intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
+            while (true) {
+                $requestResult = $this->curlRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), $this->proxy, $this->proxyType);
+                if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form')) {
+                    $this->changeProxy();
+                } else {
+                    break;
                 }
-            } catch (\Exception $ex) {
-                return 0;
+            }
+
+            $this->crawler->clear();
+            $this->crawler->load($requestResult['data']);
+
+            if ($this->crawler->find('.g', 0) != null && $this->crawler->find('.g', 0)->find('.slp', 0) != null) {
+                return intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
             }
             return 0;
         }
@@ -159,12 +158,12 @@ class SpringerParser extends WebClient
             exit();
         }
 
-        $file = fopen($fileName, "w");
+        $file = fopen('Downloads/' . $fileName, "w");
         $links = $this->parseJournalLinks();
         foreach ($links as $link) {
             $articles = $this->parseArticlesList($link);
             foreach ($articles as $article) {
-                $this->parseArticle($article)->toCSV($file); 
+                $this->parseArticle($article)->toCSV($file);
             }
         }
 

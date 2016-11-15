@@ -29,22 +29,22 @@ class Article
 {
     protected $attributes = [
         'year' => ' ',
-        'journal'=> ' ',
-        'volume'=> ' ',
-        'issue'=> ' ',
-        'pages'=> ' ',
-        'doi'=> ' ',
-        'doiLink'=> ' ',
-        'paperTitle'=> ' ',
-        'completeCitation'=> ' ',
-        'abstract'=> ' ',
-        'views'=> ' ',
-        'citationGoogle'=> ' ',
+        'journal' => ' ',
+        'volume' => ' ',
+        'issue' => ' ',
+        'pages' => ' ',
+        'doi' => ' ',
+        'doiLink' => ' ',
+        'paperTitle' => ' ',
+        'completeCitation' => ' ',
+        'abstract' => ' ',
+        'views' => ' ',
+        'citationGoogle' => ' ',
     ];
 
     function __get($name)
     {
-        if(array_key_exists($name, $this->attributes)){
+        if (array_key_exists($name, $this->attributes)) {
             return $this->attributes[$name];
         }
 
@@ -53,7 +53,7 @@ class Article
 
     function __set($name, $value)
     {
-        if(array_key_exists($name, $this->attributes)){
+        if (array_key_exists($name, $this->attributes)) {
             return $this->attributes[$name] = $value;
         }
     }
@@ -62,10 +62,11 @@ class Article
     public function toCSV($handler)
     {
         fputcsv($handler, $this->attributes);
+        fflush($handler);
     }
 
     public function toString()
     {
-        return implode(PHP_EOL, $this->attributes);
+        return implode(',', $this->attributes);
     }
 }
