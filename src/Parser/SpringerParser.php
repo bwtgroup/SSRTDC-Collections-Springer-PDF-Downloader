@@ -153,6 +153,7 @@ class SpringerParser extends WebClient
 
     public function parse($fileName)
     {
+        $count = 1;
         if ($fileName == "") {
             echo "Error CSV file not set";
             exit();
@@ -164,6 +165,7 @@ class SpringerParser extends WebClient
             $articles = $this->parseArticlesList($link);
             foreach ($articles as $article) {
                 $this->parseArticle($article)->toCSV($file);
+                echo $count++.PHP_EOL;
             }
         }
 
