@@ -10,6 +10,8 @@ namespace Parser;
 
 use Core\WebClient;
 use Models\Article;
+use MySQL\DBQuery;
+use naumenko_da\DBConnectionQuery\DBConnection;
 
 class SpringerParser extends WebClient
 {
@@ -107,8 +109,8 @@ class SpringerParser extends WebClient
         if (strpos($article->views, 'k')) {
             $article->views = ceil(doubleval(trim($this->crawler->find('.article-metrics__views', 0)->plaintext)) * 1024);
         }
-
-        $article->citationGoogle = $this->getGSViews($article->paperTitle);
+        $article->citationGoogle = null;
+//        $article->citationGoogle = $this->getGSViews($article->paperTitle);
 
         return $article;
     }
@@ -117,9 +119,12 @@ class SpringerParser extends WebClient
     {
 
         while (true) {
+            echo 'try to get ' . "https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"') . PHP_EOL;
             $requestResult = $this->curlRequest("https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"'), $this->proxy, $this->proxyType);
-
-            if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form') && strpos($requestResult['data'] , '')) {
+            echo '     ' .$requestResult['code'] . PHP_EOL;
+            file_put_contents('a.txt', print_r($requestResult['data'], true));
+            if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form')) {
+                echo '___ change proxy' . PHP_EOL;
                 $this->changeProxy();
             } else {
                 break;
@@ -129,7 +134,10 @@ class SpringerParser extends WebClient
         $this->crawler->clear();
         $this->crawler->load($requestResult['data']);
 
-        if ($this->crawler->find('.gs_rt', 0)->plaintext == $name) {
+        $plaintext=$this->crawler->find('.gs_rt', 0)->plaintext;
+
+        if (html_entity_decode(htmlentities($plaintext)) == html_entity_decode(htmlentities($name))) {
+            file_put_contents('a3.txt', print_r($this->crawler->find('div.gs_fl', 1)->plaintext), true);
             return intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
         } else {
             while (true) {
@@ -164,11 +172,104 @@ class SpringerParser extends WebClient
         foreach ($links as $link) {
             $articles = $this->parseArticlesList($link);
             foreach ($articles as $article) {
-                $this->parseArticle($article)->toCSV($file);
-                echo $count++.PHP_EOL;
+                echo $article.PHP_EOL;
+                $articleObj = $this->parseArticle($article);
+                $articleObj->toCSV($file);
+                $articleObj->saveToDB();
+//                echo $articleObj->toString().PHP_EOL;
+                echo $count++.PHP_EOL.PHP_EOL;
             }
         }
 
         fclose($file);
+    }
+
+    public function parseGSViewsArtilesInDB($query = null)
+    {
+        if(is_null($query)) {
+            $configs = include(__DIR__.'/../Config/defaults.conf.php');
+            $dsn = 'mysql:dbname=' . $configs['db'].';host='.$configs['host'];
+            $db = DBConnection::connect($dsn,$configs['user'],$configs['password']);
+            $query = new \naumenko_da\DBConnectionQuery\DBQuery($db);
+            $query->execute("set names utf8");
+        }
+
+        $countNotParsedNotLocked =(int) $query->queryScalar('select count(*) from `articles` where `citationGoogle` is NULL  and `lock` is NULL;');
+
+        if($countNotParsedNotLocked > 0) {
+            $articleToParse = $query->queryRow('select id,journal,paperTitle from `articles` where `citationGoogle` is NULL  and `lock` is NULL  limit 1;');
+        } else {
+            $countNotParsed =(int) $query->queryScalar('select count(*) from `articles` where `citationGoogle` is NULL');
+            if($countNotParsed == 0) {
+                exit();
+            }
+
+            $articleToParse = $query->queryRow('select id,journal,paperTitle from `articles` where `citationGoogle` is NULL order by rand() limit 1;');
+        }
+
+        //lock article
+        $lock = $query->execute('UPDATE `springer`.`articles` SET `lock`=\''.date("Y-m-d H:i:s").'\' WHERE  `id`='.$articleToParse['id'].';');
+
+        $parsed = $this->parseGSV($query, $articleToParse);
+        if($parsed) {
+            return $this->parseGSViewsArtilesInDB($query);
+        }
+    }
+
+    public function parseGSV($query, $article)
+    {
+        $name = $article['paperTitle'];
+        $count = 0;
+
+        while (true) {
+            echo 'try to get ' . "https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"') . PHP_EOL;
+            $requestResult = $this->curlRequest("https://scholar.google.com.ua/scholar?q=" . urlencode('"' . $name . '"'), $this->proxy, $this->proxyType);
+            echo '     ' .$requestResult['code'] . PHP_EOL;
+            file_put_contents('aq.txt', print_r(strpos($requestResult['data'], '<form'), true), FILE_APPEND);
+            if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form')) {
+                echo '___ change proxy' . PHP_EOL;
+                $this->changeProxy();
+            } else {
+                break;
+            }
+        }
+
+        $this->crawler->clear();
+        $this->crawler->load($requestResult['data']);
+
+        $plaintext=$this->crawler->find('.gs_rt', 0)->plaintext;
+
+        if (preg_match('/'.preg_replace('/[\W]+/','[\W]+',$plaintext).'/i',$name)) {
+
+            $count = intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 1)->plaintext));
+            if($count == 0) {
+                $count = intval(str_replace('Цитируется: ', '', $this->crawler->find('div.gs_fl', 0)->plaintext));
+            }
+
+        } else {
+
+            while (true) {
+                $requestResult = $this->curlRequest("https://google.com.ua/search?hl=ru&q=" . urlencode('"' . $name . '"'), $this->proxy, $this->proxyType);
+                if ($requestResult['code'] != 200 || !strpos($requestResult['data'], '<form')) {
+
+                    $this->changeProxy();
+                } else {
+                    break;
+                }
+            }
+
+            $this->crawler->clear();
+            $this->crawler->load($requestResult['data']);
+
+            if ($this->crawler->find('.g', 0) != null && $this->crawler->find('.g', 0)->find('.slp', 0) != null) {
+                $count = intval(str_replace('Цитируется: ', '', $this->crawler->find('.g', 0)->find('.slp', 0)->find('.fl', 0)->plaintext));
+            } else {
+                $count = 0;
+            }
+        }
+
+        $query->execute('UPDATE `springer`.`articles` SET `citationGoogle`=\''.$count.'\' WHERE  `id`='.$article['id'].';');
+
+        return true;
     }
 }

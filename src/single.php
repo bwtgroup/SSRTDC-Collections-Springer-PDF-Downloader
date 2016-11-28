@@ -7,5 +7,5 @@ ini_set('display_errors', 1);
 
 use Parser\SpringerParser;
 
-$parser = new SpringerParser($argv[1]);
-$parser->parse($argv[2]);
+$parser = new SpringerParser('');
+$parser->parseGSViewsArtilesInDB();

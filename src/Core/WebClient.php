@@ -29,29 +29,61 @@ abstract class WebClient
             'cookies' => true,
             'verify' => false,
             'headers' => $this->defaultHeaders,
-            'base_uri' => $this->url
+            'base_uri' => $this->url,
         ]);
         $this->debug = $debug;
         $this->crawler = new SimpleHtmlDom(null, true, true, 'UTF-8', true, '\r\n', ' ');
 
         $db = DB::connect('mysql:dbname=proxylist;host=192.168.10.207', 'root', 'zxcvbnm123456Zx');
-        $this->db = new DBQuery($db);
+        $db2 = DB::connect('mysql:dbname=gavnosayty;host=192.168.10.253', 'root', 'peLGni4Q9MGmp');
+        $this->db = new DBQuery($db2);
         $this->changeProxy();
     }
 
     public function changeProxy()
     {
         if (!empty($this->proxy)) {
-            $this->db->execute("UPDATE proxy SET lastcheck = now(), lastcode=0 where ip = '" . $this->proxy . "'");
+            $this->db->execute("UPDATE proxies SET lastcheck = now(), lastcode=500 where ip = '" . $this->proxy . "'");
+        }
+        echo '=change proxy  ' . time() . PHP_EOL;
+
+        $row = $this->db->queryRow("SELECT * FROM proxies WHERE lastcode = 200 order by rand() limit 1");
+        if (isset($row) && !empty($row['ip'])) {
+            echo '      proxy  old=' . $this->proxy . '; new=' . $row['ip'] . ' ( ' . $row['id'] . ' )' . PHP_EOL;
+
+            $this->proxy = $row['ip'];
+            $this->proxyType = $row['type'];
+
+            return true;
+        } else {
+//            sleep(1);
+
+            return $this->changeProxy();
+        }
+    }
+
+    public function changeProxy2()
+    {
+        if (!empty($this->proxy)) {
+            $this->db->execute("UPDATE proxies SET lastcheck = now(), lastcode=500 where ip = '" . $this->proxy . "'");
         }
 
         while (true) {
-            $row = $this->db->queryRow("SELECT * FROM proxy WHERE lastcode = 200 limit 1");
+            echo '=change proxy  ' . time() . PHP_EOL;
+
+            $row = $this->db->queryRow("SELECT * FROM proxies WHERE lastcode = 200 order by rand() limit 1");
             if (isset($row) && !empty($row['ip'])) {
+                echo '      proxy  old=' . $this->proxy . '; new=' . $row['ip'] . ' ( ' . $row['id'] . ' )' . PHP_EOL;
+
                 $this->proxy = $row['ip'];
                 $this->proxyType = $row['type'];
+
                 return true;
             } else {
+                if (!empty($this->proxy)) {
+                    $this->db->execute("UPDATE proxies SET lastcheck = now(), lastcode=500 where ip = '" . $this->proxy . "'");
+                }
+
                 sleep(5);
             }
         }
@@ -144,6 +176,7 @@ abstract class WebClient
             curl_close($ch);
             $rep++;
         } while (($code != '200') && ($rep < 4));
+
         return [
             'data' => $ss,
             'code' => $code,

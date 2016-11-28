@@ -8,6 +8,7 @@
     },
     "require" : {
         "guzzlehttp/guzzle" : "~6.0",
-        "react/react": "^0.4.2"
+        "react/react": "^0.4.2",
+        "naumenko_da/dbcq": "^1.0"
     }
 }

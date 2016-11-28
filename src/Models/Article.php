@@ -7,6 +7,8 @@
  */
 
 namespace Models;
+use MySQL\DBQuery;
+use naumenko_da\DBConnectionQuery\DBConnection;
 
 
 /**
@@ -68,5 +70,30 @@ class Article
     public function toString()
     {
         return implode(',', $this->attributes);
+    }
+
+    public function saveToDB()
+    {
+        $configs = include(__DIR__.'/../Config/defaults.conf.php');
+        $dsn = 'mysql:dbname=' . $configs['db'].';host='.$configs['host'];
+        $db = DBConnection::connect($dsn,$configs['user'],$configs['password']);
+        $query = new DBQuery($db);
+        $query->execute("set names utf8");
+
+        $keys = [];
+        $values = [];
+        foreach ($this->attributes as $key =>  $value) {
+            $keys[] = '`'. $key.'`';
+            if(is_null($value)) {
+                $values[] = '"\N"';
+            } else {
+                $values[] = '"'.$value.'"';
+            }
+        }
+
+        $sql = 'INSERT INTO `springer`.`articles` ('.implode(',',$keys).' ) VALUES ('.implode(',',$values).')';
+        $sql = str_replace('"\N"', 'null', $sql);
+
+        $query->execute($sql);
     }
 }
