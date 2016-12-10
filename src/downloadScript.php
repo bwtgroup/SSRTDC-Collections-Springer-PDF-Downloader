@@ -1,9 +1,5 @@
 <?php
 
-use GuzzleHttp\Exception\RequestException;
-
-require_once "../vendor/autoload.php";
-
 if ($argv[1] && $argv[2]) {
     $generator = new ArticleGenerator($argv[1], $argv[2]);
     $generator->run();
@@ -27,7 +23,7 @@ class ArticleGenerator
     {
         $this->list = $list;
         $this->outFolder = $outFolder;
-        $this->client = new GuzzleHttp\Client();
+        //$this->client = new GuzzleHttp\Client();
     }
 
     public function run()
@@ -50,7 +46,7 @@ class ArticleGenerator
             $filename = $this->outFolder . '/' . $item['ID'] . '-' . $item['year'] . '-' . $item['tome'] . '(' . $item['release'] . ')-(' . $item['pages'] . ')-' . preg_replace('/(.*\/)?(.+)/',
                     '$2', $item['DOI']) . $file['ext'];
             $handle = fopen($filename, 'w');
-            fwrite($handle, $file['body']->getContents());
+            fwrite($handle, $file['body']);
             fclose($handle);
             $this->sleepTenSeconds();
         }
@@ -92,26 +88,15 @@ class ArticleGenerator
 
     private function getFile($DOI)
     {
-        try {
-            $page = $this->client->request('GET', $this->prefix . $DOI . '.pdf');
-            if ($page->getStatusCode() == 200 && in_array('application/pdf', $page->getHeader('content-type'))) {
-                return ['body' => $page->getBody(), 'ext' => '.pdf'];
-            } else {
-                throw new Exception('No access');
-            }
-        } catch (Exception $e) {
-            try {
-                $page = $this->client->request('GET', $this->prefix . $DOI . '.html');
-                if ($page->getStatusCode() == 200 && strpos($page->getBody()->getContents(),
-                        'Log in to check your access to this article') === false
-                ) {
-                    return ['body' => $page->getBody(), 'ext' => '.html'];
-                }
-
-            } catch (Exception $exception) {
+        $page = file_get_contents($this->prefix . $DOI . '.pdf');//$this->client->request('GET', $this->prefix . $DOI . '.pdf');
+        if ($page && strpos($page, 'Log in to check your access to this article') === false) {
+            return ['body' => $page, 'ext' => '.pdf'];
+        } else {
+            $page = file_get_contents($this->prefix . $DOI . '.html');
+            if ($page && strpos($page, 'Log in to check your access to this article') === false) {
+                return ['body' => $page, 'ext' => '.html'];
             }
         }
-
         echo 'File "' . $this->prefix . $DOI . '" was not found or it can\'t be reached' . PHP_EOL;
         $this->sleepTenSeconds();
 
