@@ -1,15 +1,16 @@
-**SSRTDC Springer article parser**
+**SSRTDC Collections Springer PDF Downloader**
 
-Parser is intended for building the list of articles from Springer journal.
-Parsing rules:
-- get issue page url from journal
-- get article url from issue page
-- get Author, Year, Journal, Volume, Issue, Pages, DOI, DOI Link, Paper Title, Complete Citation, Abstract, Views, Citations data
-- find article name in  https://scholar.google.com.ua/ and get number of citations.
+This is a script for downloading full texts of Springer journal.
+Functionality:
 
+Input data: 
+  1. <list>: the name of csv file, which contains DOI and required accompanying info from articles. 
+  2. <OutFolder>: the name of directory, which will store articles from the list. 
+Expected output:
+  1. Downloaded articles in csv format.
+ 
 ####1. Dependencies
  * php 5.6
- * guzzlehttp/guzzle ~6.0
  
 ####2. Installation
  - Clone repository or download zip
@@ -17,14 +18,11 @@ Parsing rules:
  ```bash
  composer install
  ```
- - Configure database settings in **src/Config/defaults.conf.php**
  
 ####3. Run Scripts for Project
  ```bash
- #run hournal parsing. For this a link to journal and a name of future csv where data will be stored should be passed.
- php index.php JOURNAL_LINK CSV_FILE_NAME
- #When journal is passed, command should be executed in order to parse data from  google scholar
- php single.php
+ #run script and pass two required parameters 
+ php downloadScript.php list.csv OutFolder
  ```
  
 ### 4. License
